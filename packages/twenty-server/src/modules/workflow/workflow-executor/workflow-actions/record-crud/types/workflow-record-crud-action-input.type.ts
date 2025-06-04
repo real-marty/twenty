@@ -25,7 +25,12 @@ export type WorkflowDeleteRecordActionInput = {
 
 export type WorkflowFindRecordsActionInput = {
   objectName: string;
-  filter?: Partial<ObjectRecordFilter>;
+  // TODO: migrate gql computation and record filter groups to twenty-shared
+  filter?: {
+    recordFilterGroups?: unknown;
+    recordFilters?: unknown;
+    gqlOperationFilter?: Partial<ObjectRecordFilter>;
+  };
   orderBy?: Partial<ObjectRecordOrderBy>;
   limit?: number;
 };

@@ -5,13 +5,21 @@ import { WorkflowStepHeader } from '@/workflow/workflow-steps/components/Workflo
 import { useEffect, useState } from 'react';
 
 import { FormNumberFieldInput } from '@/object-record/record-field/form-types/components/FormNumberFieldInput';
+import { RecordFilterGroupsComponentInstanceContext } from '@/object-record/record-filter-group/states/context/RecordFilterGroupsComponentInstanceContext';
+import { RecordFilterGroup } from '@/object-record/record-filter-group/types/RecordFilterGroup';
+import { RecordFiltersComponentInstanceContext } from '@/object-record/record-filter/states/context/RecordFiltersComponentInstanceContext';
+import { RecordFilter } from '@/object-record/record-filter/types/RecordFilter';
+import { RecordIndexContextProvider } from '@/object-record/record-index/contexts/RecordIndexContext';
 import { WorkflowStepBody } from '@/workflow/workflow-steps/components/WorkflowStepBody';
+import { WorkflowFindRecordFilters } from '@/workflow/workflow-steps/workflow-actions/components/WorkflowFindRecordFilters';
+import { WorkflowFindRecordFiltersEffect } from '@/workflow/workflow-steps/workflow-actions/components/WorkflowFindRecordFiltersEffect';
 import { useActionHeaderTypeOrThrow } from '@/workflow/workflow-steps/workflow-actions/hooks/useActionHeaderTypeOrThrow';
 import { useActionIconColorOrThrow } from '@/workflow/workflow-steps/workflow-actions/hooks/useActionIconColorOrThrow';
 import { getActionIcon } from '@/workflow/workflow-steps/workflow-actions/utils/getActionIcon';
 import { isDefined } from 'twenty-shared/utils';
 import { HorizontalSeparator, useIcons } from 'twenty-ui/display';
 import { SelectOption } from 'twenty-ui/input';
+import { JsonValue } from 'type-fest';
 import { useDebouncedCallback } from 'use-debounce';
 
 type WorkflowEditActionFindRecordsProps = {
@@ -28,7 +36,14 @@ type WorkflowEditActionFindRecordsProps = {
 
 type FindRecordsFormData = {
   objectName: string;
+  filter?: FindRecordsActionFilter;
   limit?: number;
+};
+
+export type FindRecordsActionFilter = {
+  recordFilterGroups?: RecordFilterGroup[];
+  recordFilters?: RecordFilter[];
+  gqlOperationFilter?: JsonValue;
 };
 
 export const WorkflowEditActionFindRecords = ({
@@ -50,13 +65,16 @@ export const WorkflowEditActionFindRecords = ({
   const [formData, setFormData] = useState<FindRecordsFormData>({
     objectName: action.settings.input.objectName,
     limit: action.settings.input.limit,
+    filter: action.settings.input.filter as FindRecordsActionFilter,
   });
   const isFormDisabled = actionOptions.readonly;
 
+  const selectedObjectMetadataItem = activeNonSystemObjectMetadataItems.find(
+    (item) => item.nameSingular === formData.objectName,
+  );
+
   const selectedObjectMetadataItemNameSingular =
-    activeNonSystemObjectMetadataItems.find(
-      (item) => item.nameSingular === formData.objectName,
-    )?.nameSingular ?? '';
+    selectedObjectMetadataItem?.nameSingular ?? '';
 
   const saveAction = useDebouncedCallback(
     async (formData: FindRecordsFormData) => {
@@ -64,7 +82,11 @@ export const WorkflowEditActionFindRecords = ({
         return;
       }
 
-      const { objectName: updatedObjectName, limit: updatedLimit } = formData;
+      const {
+        objectName: updatedObjectName,
+        limit: updatedLimit,
+        filter: updatedFilter,
+      } = formData;
 
       actionOptions.onActionUpdate({
         ...action,
@@ -73,6 +95,7 @@ export const WorkflowEditActionFindRecords = ({
           input: {
             objectName: updatedObjectName,
             limit: updatedLimit ?? 1,
+            filter: updatedFilter,
           },
         },
       });
@@ -90,6 +113,7 @@ export const WorkflowEditActionFindRecords = ({
   const headerIcon = getActionIcon(action.type);
   const headerIconColor = useActionIconColorOrThrow(action.type);
   const headerType = useActionHeaderTypeOrThrow(action.type);
+  const recordIndexId = `workflow-edit-action-record-find-records-${action.id}`;
 
   return (
     <>
@@ -133,14 +157,53 @@ export const WorkflowEditActionFindRecords = ({
         />
 
         <HorizontalSeparator noMargin />
+        <>
+          {isDefined(selectedObjectMetadataItem) && (
+            <RecordIndexContextProvider
+              value={{
+                indexIdentifierUrl: () => '',
+                onIndexRecordsLoaded: () => {},
+                objectNamePlural: selectedObjectMetadataItem.labelPlural,
+                objectNameSingular: selectedObjectMetadataItem.nameSingular,
+                objectMetadataItem: selectedObjectMetadataItem,
+                recordIndexId: `workflow-edit-action-record-find-records-${action.id}`,
+              }}
+            >
+              <RecordFilterGroupsComponentInstanceContext.Provider
+                value={{ instanceId: recordIndexId }}
+              >
+                <RecordFiltersComponentInstanceContext.Provider
+                  value={{ instanceId: recordIndexId }}
+                >
+                  <WorkflowFindRecordFilters
+                    objectMetadataItem={selectedObjectMetadataItem}
+                    onChange={(filter: FindRecordsActionFilter) => {
+                      const newFormData: FindRecordsFormData = {
+                        ...formData,
+                        filter,
+                      };
 
-        <FormNumberFieldInput
-          label="Limit"
-          defaultValue={formData.limit}
-          placeholder="Enter limit"
-          onChange={() => {}}
-          readonly
-        />
+                      setFormData(newFormData);
+
+                      saveAction(newFormData);
+                    }}
+                  />
+                  <WorkflowFindRecordFiltersEffect
+                    defaultValue={formData.filter}
+                  />
+                </RecordFiltersComponentInstanceContext.Provider>
+              </RecordFilterGroupsComponentInstanceContext.Provider>
+            </RecordIndexContextProvider>
+          )}
+
+          <FormNumberFieldInput
+            label="Limit"
+            defaultValue={formData.limit}
+            placeholder="Enter limit"
+            onChange={() => {}}
+            readonly
+          />
+        </>
       </WorkflowStepBody>
     </>
   );

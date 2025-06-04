@@ -1,7 +1,7 @@
-import { customDomainRecordsState } from '~/pages/settings/workspace/states/customDomainRecordsState';
-import { useCheckCustomDomainValidRecordsMutation } from '~/generated/graphql';
 import { useSetRecoilState } from 'recoil';
 import { isDefined } from 'twenty-shared/utils';
+import { useCheckCustomDomainValidRecordsMutation } from '~/generated/graphql';
+import { customDomainRecordsState } from '~/pages/settings/workspace/states/customDomainRecordsState';
 
 export const useCheckCustomDomainValidRecords = () => {
   const [checkCustomDomainValidRecords] =
@@ -16,13 +16,19 @@ export const useCheckCustomDomainValidRecords = () => {
     }));
     checkCustomDomainValidRecords({
       onCompleted: (data) => {
-        setCustomDomainRecords((currentState) => ({
-          ...currentState,
-          isLoading: false,
-          ...(isDefined(data.checkCustomDomainValidRecords)
-            ? { customDomainRecords: data.checkCustomDomainValidRecords }
-            : {}),
-        }));
+        // setCustomDomainRecords((currentState) => ({
+        //   ...currentState,
+        //   isLoading: false,
+        //   ...(isDefined(data.checkCustomDomainValidRecords)
+        //     ? { customDomainRecords: data.checkCustomDomainValidRecords }
+        //     : {}),
+        // }));
+        if (isDefined(data.checkCustomDomainValidRecords)) {
+          setCustomDomainRecords({
+            isLoading: false,
+            customDomainRecords: data.checkCustomDomainValidRecords,
+          });
+        }
       },
     });
   };
